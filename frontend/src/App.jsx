@@ -1,37 +1,51 @@
 import { useEffect, useState } from "react";
 import { startPipeline, getStatus } from "./api";
+import "./index.css";
 
 function App() {
-  const [status, setStatus] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [status, setStatus] = useState({
+    stage: "idle",
+    progress: 0,
+    logs: [],
+    aws: "pending",
+    azure: "pending"
+  });
 
+  const [running, setRunning] = useState(false);
+
+  // =========================
+  // FETCH STATUS (POLLING)
+  // =========================
   const fetchStatus = async () => {
     try {
       const data = await getStatus();
       setStatus(data);
     } catch (err) {
-      console.error("Error fetching status:", err);
+      console.error("Failed to fetch status:", err);
     }
   };
 
+  // =========================
+  // START PIPELINE
+  // =========================
   const handleStart = async () => {
     try {
-      setLoading(true);
+      setRunning(true);
+
       await startPipeline();
 
-      // poll status instead of socket
       const interval = setInterval(async () => {
         const data = await getStatus();
         setStatus(data);
 
         if (data.stage === "completed") {
           clearInterval(interval);
-          setLoading(false);
+          setRunning(false);
         }
-      }, 1500);
+      }, 1200);
     } catch (err) {
-      console.error("Backend connection failed", err);
-      setLoading(false);
+      console.error("Pipeline start failed:", err);
+      setRunning(false);
     }
   };
 
@@ -39,26 +53,73 @@ function App() {
     fetchStatus();
   }, []);
 
+  // =========================
+  // UI
+  // =========================
   return (
-    <div style={{ padding: "20px", fontFamily: "Arial" }}>
-      <h1>🚀 Multi-Cloud Pipeline</h1>
+    <div className="dashboard">
 
-      <button onClick={handleStart} disabled={loading}>
-        {loading ? "Running..." : "Start Pipeline"}
-      </button>
+      {/* HEADER */}
+      <h1>🚀 Multi-Cloud DevOps Dashboard</h1>
 
-      <div style={{ marginTop: "20px" }}>
-        <h3>Status:</h3>
-        <p><b>Stage:</b> {status?.stage}</p>
-        <p><b>Progress:</b> {status?.progress}%</p>
+      {/* PIPELINE CARD */}
+      <div className="card">
+        <h2>Pipeline Status</h2>
+
+        <div className={`badge ${status.stage}`}>
+          {status.stage?.toUpperCase()}
+        </div>
+
+        <div className="progress-bar">
+          <div
+            className="progress"
+            style={{ width: `${status.progress || 0}%` }}
+          />
+        </div>
+
+        <p>{status.progress || 0}% completed</p>
+
+        <button onClick={handleStart} disabled={running}>
+          {running ? "Running Pipeline..." : "Start Pipeline"}
+        </button>
       </div>
 
-      <div style={{ marginTop: "20px" }}>
-        <h3>Logs:</h3>
-        {status?.logs?.map((log, i) => (
-          <div key={i}>• {log.message}</div>
+      {/* CLOUD STATUS */}
+      <div className="card">
+        <h2>☁️ Multi-Cloud Status</h2>
+
+        <div className="cloud-grid">
+
+          <div className="cloud-box">
+            <h3>☁️ AWS</h3>
+            <p className={`status ${status.aws}`}>
+              {status.aws?.toUpperCase()}
+            </p>
+          </div>
+
+          <div className="cloud-box">
+            <h3>🌩 Azure</h3>
+            <p className={`status ${status.azure}`}>
+              {status.azure?.toUpperCase()}
+            </p>
+          </div>
+
+        </div>
+      </div>
+
+      {/* LIVE LOGS */}
+      <div className="card logs">
+        <h2>📜 Live Pipeline Logs</h2>
+
+        {!status.logs?.length && <p>No logs yet...</p>}
+
+        {status.logs?.map((log, i) => (
+          <div key={i} className="log">
+            ✔ {log.message}
+          </div>
         ))}
       </div>
+
     </div>
   );
 }
