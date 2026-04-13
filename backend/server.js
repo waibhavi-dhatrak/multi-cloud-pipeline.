@@ -3,97 +3,100 @@ const cors = require("cors");
 
 const app = express();
 
-// ========================
-// MIDDLEWARE
-// ========================
 app.use(cors({ origin: "*" }));
 app.use(express.json());
 
-// ========================
-// HEALTH CHECK (IMPORTANT)
-// ========================
-app.get("/", (req, res) => {
-  res.json({
-    status: "Backend running 🚀",
-    message: "API is live",
-    time: new Date().toISOString()
-  });
-});
-
-// ========================
+// =====================
 // PIPELINE STATE
-// ========================
+// =====================
 let pipelineState = {
   stage: "idle",
   progress: 0,
+  aws: "pending",
+  azure: "pending",
   logs: []
 };
 
-// ========================
-// GET STATUS API
-// ========================
+// =====================
+// HEALTH
+// =====================
+app.get("/", (req, res) => {
+  res.json({ status: "Multi-Cloud DevOps Backend 🚀" });
+});
+
+// =====================
+// STATUS
+// =====================
 app.get("/api/pipeline/status", (req, res) => {
   res.json(pipelineState);
 });
 
-// ========================
-// START PIPELINE API
-// ========================
-app.post("/api/pipeline/start", (req, res) => {
+// =====================
+// START PIPELINE
+// =====================
+app.post("/api/pipeline/start", async (req, res) => {
   pipelineState = {
     stage: "starting",
     progress: 0,
+    aws: "pending",
+    azure: "pending",
     logs: [{ message: "Pipeline started" }]
   };
 
-  res.json({
-    success: true,
-    message: "Pipeline started 🚀"
-  });
+  res.json({ success: true });
 
   runPipeline();
 });
 
-// ========================
-// SIMULATED PIPELINE
-// ========================
-function runPipeline() {
+// =====================
+// SIMULATED MULTI-CLOUD PIPELINE
+// =====================
+async function runPipeline() {
   const steps = [
-    "Pulling code from GitHub",
-    "Installing dependencies",
     "Building application",
     "Running tests",
-    "Deploying to cloud",
-    "Completed"
+    "Deploying to AWS",
+    "Deploying to Azure",
+    "Finalizing"
   ];
 
-  let i = 0;
+  for (let i = 0; i < steps.length; i++) {
+    const step = steps[i];
 
-  const interval = setInterval(() => {
-    if (i >= steps.length) {
-      pipelineState.stage = "completed";
-      pipelineState.progress = 100;
-      clearInterval(interval);
-      return;
+    pipelineState.stage = step;
+    pipelineState.progress = Math.round(((i + 1) / steps.length) * 100);
+
+    pipelineState.logs.push({ message: step });
+
+    // 🌩 AWS DEPLOY SIMULATION
+    if (step.includes("AWS")) {
+      pipelineState.aws = "deploying";
+      await fakeDelay();
+      pipelineState.aws = "success";
     }
 
-    pipelineState.stage = steps[i];
-    pipelineState.progress = Math.floor(((i + 1) / steps.length) * 100);
+    // ☁️ AZURE DEPLOY SIMULATION
+    if (step.includes("Azure")) {
+      pipelineState.azure = "deploying";
+      await fakeDelay();
+      pipelineState.azure = "success";
+    }
 
-    pipelineState.logs.push({
-      time: new Date().toISOString(),
-      message: steps[i]
-    });
+    await fakeDelay();
+  }
 
-    i++;
-  }, 1200);
+  pipelineState.stage = "completed";
+  pipelineState.progress = 100;
 }
 
-// ========================
-// START SERVER (CRITICAL FOR RENDER)
-// ========================
-const PORT = process.env.PORT || 10000;
+function fakeDelay() {
+  return new Promise((res) => setTimeout(res, 1200));
+}
 
+// =====================
+// SERVER
+// =====================
+const PORT = process.env.PORT || 10000;
 app.listen(PORT, "0.0.0.0", () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log("Multi-cloud backend running on", PORT);
 });
