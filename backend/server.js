@@ -1,33 +1,21 @@
 const express = require("express");
 const cors = require("cors");
-const http = require("http");
-const { Server } = require("socket.io");
 
 const app = express();
-const server = http.createServer(app);
 
 // ========================
-// CORS CONFIG
+// MIDDLEWARE
 // ========================
 app.use(cors({ origin: "*" }));
 app.use(express.json());
 
 // ========================
-// SOCKET.IO SETUP (safe for Render)
-// ========================
-const io = new Server(server, {
-  cors: {
-    origin: "*",
-    methods: ["GET", "POST"]
-  }
-});
-
-// ========================
-// HEALTH CHECK ROUTE
+// HEALTH CHECK (IMPORTANT)
 // ========================
 app.get("/", (req, res) => {
   res.json({
     status: "Backend running 🚀",
+    message: "API is live",
     time: new Date().toISOString()
   });
 });
@@ -42,29 +30,32 @@ let pipelineState = {
 };
 
 // ========================
-// GET STATUS
+// GET STATUS API
 // ========================
 app.get("/api/pipeline/status", (req, res) => {
   res.json(pipelineState);
 });
 
 // ========================
-// START PIPELINE
+// START PIPELINE API
 // ========================
 app.post("/api/pipeline/start", (req, res) => {
   pipelineState = {
     stage: "starting",
     progress: 0,
-    logs: []
+    logs: [{ message: "Pipeline started" }]
   };
 
-  res.json({ success: true, message: "Pipeline started 🚀" });
+  res.json({
+    success: true,
+    message: "Pipeline started 🚀"
+  });
 
   runPipeline();
 });
 
 // ========================
-// PIPELINE SIMULATION
+// SIMULATED PIPELINE
 // ========================
 function runPipeline() {
   const steps = [
@@ -72,7 +63,6 @@ function runPipeline() {
     "Installing dependencies",
     "Building application",
     "Running tests",
-    "Preparing deployment",
     "Deploying to cloud",
     "Completed"
   ];
@@ -90,38 +80,20 @@ function runPipeline() {
     pipelineState.stage = steps[i];
     pipelineState.progress = Math.floor(((i + 1) / steps.length) * 100);
 
-    const log = {
+    pipelineState.logs.push({
       time: new Date().toISOString(),
       message: steps[i]
-    };
-
-    pipelineState.logs.push(log);
-
-    // emit live updates (safe even if frontend not connected)
-    io.emit("pipeline-update", pipelineState);
+    });
 
     i++;
   }, 1200);
 }
 
 // ========================
-// SOCKET CONNECTION
-// ========================
-io.on("connection", (socket) => {
-  console.log("Client connected:", socket.id);
-
-  socket.emit("pipeline-update", pipelineState);
-
-  socket.on("disconnect", () => {
-    console.log("Client disconnected");
-  });
-});
-
-// ========================
 // START SERVER (CRITICAL FOR RENDER)
 // ========================
 const PORT = process.env.PORT || 10000;
 
-server.listen(PORT, "0.0.0.0", () => {
+app.listen(PORT, "0.0.0.0", () => {
   console.log(`Server running on port ${PORT}`);
 });
