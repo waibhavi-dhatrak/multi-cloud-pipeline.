@@ -1,8 +1,13 @@
-import axios from "axios";
+const API = import.meta.env.VITE_API_URL;
 
-const BASE_URL = "http://localhost:5001";
+export const startPipeline = async () => {
+  const res = await fetch(`${API}/api/pipeline/start`, {
+    method: "POST"
+  });
+  return res.json();
+};
 
-export const runPipeline = async () => {
-  const res = await axios.post(`${BASE_URL}/deploy/aws`);
-  return res.data;
+export const getPipelineStatus = async () => {
+  const res = await fetch(`${API}/api/pipeline/status`);
+  return res.json();
 };
