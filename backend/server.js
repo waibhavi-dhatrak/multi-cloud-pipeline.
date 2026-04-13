@@ -1,71 +1,127 @@
 const express = require("express");
 const cors = require("cors");
+const http = require("http");
+const { Server } = require("socket.io");
 
 const app = express();
+const server = http.createServer(app);
 
+// ========================
+// CORS CONFIG
+// ========================
 app.use(cors({ origin: "*" }));
 app.use(express.json());
 
-// HEALTH CHECK
-app.get("/", (req, res) => {
-  res.json({ status: "Backend running 🚀" });
+// ========================
+// SOCKET.IO SETUP (safe for Render)
+// ========================
+const io = new Server(server, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"]
+  }
 });
 
+// ========================
+// HEALTH CHECK ROUTE
+// ========================
+app.get("/", (req, res) => {
+  res.json({
+    status: "Backend running 🚀",
+    time: new Date().toISOString()
+  });
+});
+
+// ========================
 // PIPELINE STATE
-let pipeline = {
+// ========================
+let pipelineState = {
   stage: "idle",
   progress: 0,
   logs: []
 };
 
-// STATUS
+// ========================
+// GET STATUS
+// ========================
 app.get("/api/pipeline/status", (req, res) => {
-  res.json(pipeline);
+  res.json(pipelineState);
 });
 
+// ========================
 // START PIPELINE
+// ========================
 app.post("/api/pipeline/start", (req, res) => {
-  pipeline = {
-    stage: "running",
-    progress: 10,
-    logs: [{ message: "Pipeline started" }]
+  pipelineState = {
+    stage: "starting",
+    progress: 0,
+    logs: []
   };
 
-  res.json({ success: true });
+  res.json({ success: true, message: "Pipeline started 🚀" });
 
-  runFakePipeline();
+  runPipeline();
 });
 
-// SIMULATION
-function runFakePipeline() {
+// ========================
+// PIPELINE SIMULATION
+// ========================
+function runPipeline() {
   const steps = [
-    "Pulling code",
+    "Pulling code from GitHub",
     "Installing dependencies",
-    "Building app",
+    "Building application",
     "Running tests",
-    "Deploying"
+    "Preparing deployment",
+    "Deploying to cloud",
+    "Completed"
   ];
 
   let i = 0;
 
   const interval = setInterval(() => {
     if (i >= steps.length) {
-      pipeline.stage = "completed";
-      pipeline.progress = 100;
+      pipelineState.stage = "completed";
+      pipelineState.progress = 100;
       clearInterval(interval);
       return;
     }
 
-    pipeline.stage = steps[i];
-    pipeline.progress = Math.floor(((i + 1) / steps.length) * 100);
-    pipeline.logs.push({ message: steps[i] });
+    pipelineState.stage = steps[i];
+    pipelineState.progress = Math.floor(((i + 1) / steps.length) * 100);
+
+    const log = {
+      time: new Date().toISOString(),
+      message: steps[i]
+    };
+
+    pipelineState.logs.push(log);
+
+    // emit live updates (safe even if frontend not connected)
+    io.emit("pipeline-update", pipelineState);
 
     i++;
   }, 1200);
 }
 
-// IMPORTANT FOR RENDER
+// ========================
+// SOCKET CONNECTION
+// ========================
+io.on("connection", (socket) => {
+  console.log("Client connected:", socket.id);
+
+  socket.emit("pipeline-update", pipelineState);
+
+  socket.on("disconnect", () => {
+    console.log("Client disconnected");
+  });
+});
+
+// ========================
+// START SERVER (CRITICAL FOR RENDER)
+// ========================
 const PORT = process.env.PORT || 10000;
-app.listen(PORT, () => {
-  console.log("Server running on port", PORT);
+
+server.listen(PORT, "0.0.0.0", () => {
+  console.log(`Server running on port ${PORT}`);
 });
